@@ -1,0 +1,31 @@
+/* src/heartbeat_backend/static/css/force_sidebar_right.css */
+
+/* 1. Nuke Django's responsive layout and force a strict 2-column Grid */
+.module.filtered#changelist {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 280px !important;
+    gap: 20px !important;
+    align-items: start !important;
+}
+
+/* 2. Lock the data table to the left column (Row 1, Column 1) */
+#changelist .changelist-form-container {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important; 
+    width: 100% !important;
+}
+
+/* Ensure the table itself can scroll horizontally inside its container */
+#changelist-form .results {
+    overflow-x: auto !important;
+    width: 100% !important;
+}
+
+/* 3. Lock the filter sidebar to the right column (Row 1, Column 2) */
+#changelist-filter {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    margin: 0 !important;
+}
