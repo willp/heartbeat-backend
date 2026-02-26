@@ -3,6 +3,28 @@ from django.contrib import admin
 from django.db.models import F
 from .models import HeartbeatEntry
 
+from django.utils import timezone
+from datetime import datetime
+from django.utils.timesince import timesince
+
+def seconds_to_human(seconds):
+    """Converts integer seconds into a friendly string like '5m' or '2h 30m'."""
+    if seconds is None:
+        return ""
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        m, s = divmod(seconds, 60)
+        return f"{m}m {s}s" if s else f"{m}m"
+    elif seconds < 86400:
+        h, m = divmod(seconds, 3600)
+        m = m // 60
+        return f"{h}h {m}m" if m else f"{h}h"
+    else:
+        d, h = divmod(seconds, 86400)
+        h = h // 3600
+        return f"{d}d {h}h" if h else f"{d}d"
+
 class IsAliveFilter(admin.SimpleListFilter):
     title = 'Alive Status'
     parameter_name = 'is_alive'
@@ -42,14 +64,16 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
         'port', 
         'task', 
         'version',
-        'interval', 
-        'alert_after', 
+        'interval_human', 
+        'alert_after_human', 
+        'last_received_human',        
         'delay', 
+        'sender_ip',
         'final_report'
     )
     
     # Right-hand sidebar filters (Custom filter + low cardinality fields)
-    list_filter = (IsAliveFilter, 'app_name', 'hostname', 'task', 'version')
+    list_filter = (IsAliveFilter, 'app_name', 'sender_ip', 'hostname', 'task', 'version')
     
     # Top search bar
     search_fields = ('hostname', 'app_name', 'task', 'final_report')
@@ -57,6 +81,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
     # Prevent manual editing of snapshots
     readonly_fields = (
         'hostname', 'app_name', 'port', 'task', 
+        'sender_ip',
         'interval', 'alert_after', 'version', 'final_report',
         'sent_timestamp', 'received_timestamp'
     )
@@ -68,6 +93,32 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description='Alive?')
     def alive_status(self, obj):
         return obj.is_alive
+
+    @admin.display(description='Interval', ordering='interval')
+    def interval_human(self, obj):
+        return seconds_to_human(obj.interval)
+
+    @admin.display(description='Alert After', ordering='alert_after')
+    def alert_after_human(self, obj):
+        return seconds_to_human(obj.alert_after)
+
+    @admin.display(description='Last Received', ordering='received_timestamp')
+    def last_received_human(self, obj):
+        delta_t = time.time() - obj.received_timestamp
+        # Grab the timezone you just configured in settings.py
+        local_tz = timezone.get_current_timezone()
+        
+        # Convert the integer epoch using your local timezone
+        dt = datetime.fromtimestamp(obj.received_timestamp, tz=local_tz)
+        
+        # Format it nicely
+        time_str = dt.strftime('%b %d, %H:%M:%S')
+        if delta_t < 60:
+            t_since = f"{int(delta_t)} sec"
+        else:
+            t_since = timesince(dt)
+
+        return f"{time_str} ({t_since} ago)"
 
     class Media:
         css = {

@@ -26,6 +26,7 @@ class HeartbeatEntry(models.Model):
     # Timestamps (using BigIntegerField to future-proof past the 2038 epoch issue)
     sent_timestamp = models.BigIntegerField()
     received_timestamp = models.BigIntegerField(default=current_epoch_int)
+    sender_ip = models.GenericIPAddressField(null=True, blank=True) # Add this
 
     @property
     def is_alive(self):

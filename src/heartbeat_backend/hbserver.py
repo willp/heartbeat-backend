@@ -52,6 +52,7 @@ def run_udp_server(host_ip, port):
     try:
         while True:
             data, client_address = server_socket.recvfrom(4096)
+            ip_address = client_address[0]  # This is the sender's IP
             try:
                 jlen = len(data)
                 json_payload = json.loads(data)
@@ -64,6 +65,7 @@ def run_udp_server(host_ip, port):
                     port=hbmesg.port,
                     task=hbmesg.task,
                     defaults={
+                        'sender_ip': ip_address,  # Store the IP here
                         'interval': hbmesg.interval,
                         'alert_after': hbmesg.alert_after,
                         'version': hbmesg.version,
