@@ -58,7 +58,7 @@ html, body, #container, #main, #content-main {
 
 /* 8. Handle Column Widths: Give the 'heavy' columns the most room */
 #result_list th, #result_list td {
-    padding: 8px !important;
+    padding: 10px !important;
     /* overflow: hidden;
     text-overflow: ellipsis; */
 }
@@ -66,15 +66,49 @@ html, body, #container, #main, #content-main {
 .column-port {
     text-align: center !important;
 }
+.column-interval_human {
+    text-align: center !important;
+}
+.column-alert_after_human {
+    text-align: center !important;
+}
+.column-last_received_human {
+    text-align: center !important;
+}
+.column-version {
+    text-align: center !important;
+}
+.column-alive_status {
+    text-align: center !important;
+}
+.field-hostname {
+    margin-right: 20px;
+}
 
 .field-port {
     text-align: center !important;
 }
+.field-interval_human {
+    text-align: center !important;
+}
+.field-alert_after_human {
+    text-align: center !important;
+}
+.field-last_received_human {
+    text-align: center !important;
+}
+.field-version {
+    text-align: center !important;
+}
+.field-alive_status {
+    text-align: center !important;
+}
+
 
 /* We manually set a few column widths to prevent the "tiny column" problem */
 .column-alive_status { width: 50px; }
-.column-hostname { width: 150px; }
-.column-app_name { width: 150px; }
+/* .column-hostname { width: 150px; } */
+/* .column-app_name { width: 150px; } */
 
 /* The final_report gets the lion's share of the width */
 .column-final_report { 

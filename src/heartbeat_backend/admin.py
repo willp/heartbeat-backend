@@ -6,6 +6,8 @@ from .models import HeartbeatEntry
 from django.utils import timezone
 from datetime import datetime
 from django.utils.timesince import timesince
+from django.utils.html import format_html
+from django.template.defaultfilters import linebreaksbr
 
 def seconds_to_human(seconds):
     """Converts integer seconds into a friendly string like '5m' or '2h 30m'."""
@@ -66,7 +68,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
         'version',
         'interval_human', 
         'alert_after_human', 
-        'last_received_human',        
+        'last_received_human',       
         # 'delay', 
         # 'sender_ip',
         'final_report'
@@ -119,7 +121,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
             t_since = timesince(dt)
             t_since = t_since.replace("minute", "min").replace("hour", "hr")
 
-        return f"{time_str} ({t_since} ago)"
+        return format_html("{}<br>({} ago)", time_str, t_since)
 
     class Media:
         css = {
