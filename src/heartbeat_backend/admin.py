@@ -117,6 +117,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
             t_since = f"{int(delta_t)} sec"
         else:
             t_since = timesince(dt)
+            t_since = t_since.replace("minute", "min").replace("hour", "hr")
 
         return f"{time_str} ({t_since} ago)"
 
