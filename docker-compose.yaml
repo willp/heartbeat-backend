@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  heartbeat-server:
+    build: .
+    restart: always
+    ports:
+      - "127.0.0.1:8334:8333/tcp" # Host 8334 -> Container 8333 (Internal only)
+      - "8333:8333/udp"           # Host 8333 -> Container 8333 (Direct for hardware)
+      #
+      # for running in dev locally, no apache:
+      # - "8333:8333/tcp"  # Web/Admin traffic
+      # - "8333:8333/udp"  # Heartbeat pings
+    volumes:
+      # Persistent SQLite storage
+      - ./data:/data
+      # Transparent log access on your host
+      - ./logs:/app/logs
+    environment:
+      # Ensure Django knows it's in production
+      - RUNNING_IN_CONTAINER=true
+      - PYTHONPATH=/app
+      - DJANGO_DEBUG=False
+      - DJANGO_ALLOWED_HOSTS=hb.nuclei.com

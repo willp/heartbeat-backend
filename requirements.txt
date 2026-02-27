@@ -1,0 +1,7 @@
+asgiref==3.11.1
+build==1.4.0
+Django==6.0.2
+packaging==26.0
+pyproject_hooks==1.2.0
+sqlparse==0.5.5
+waitress==3.0.2

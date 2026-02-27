@@ -25,8 +25,15 @@ SECRET_KEY = "django-insecure-_wll!he^ft83!p5=e!e40djdzg$+y5!$46m=qgyj8sv(tsi7nt
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [ '*' ]
+ALLOWED_HOSTS = [
+    "*",
+]
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://hb.tenthlight.com:8333",
+    "https://vm7.tenthlight.com:8333",  # Add this too if you use the VM name
+]
 
 # Application definition
 

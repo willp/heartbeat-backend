@@ -7,6 +7,10 @@ import json
 import threading
 import argparse
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 # --- SAFE, IMPORTABLE CLASSES & FUNCTIONS ---
 
 class HeartbeatMessage:
@@ -29,6 +33,7 @@ class HeartbeatMessage:
     def from_json(cls, json_str):
         metadata = json.loads(json_str)
         return cls(metadata)
+
 
 
 def run_udp_server(host_ip, port):
@@ -90,10 +95,22 @@ if __name__ == "__main__":
 
     args, remaining_args = parser.parse_known_args()
 
-    # Enforce Architectural Security Constraints
+    def is_docker():
+        """Returns True if explicitly told we are in a container."""
+        return os.environ.get('RUNNING_IN_CONTAINER') == 'true'
+
+    # Existing Safety Check
+    print(f"Checking safety...")
     if args.production and args.public:
-        print("ERROR: --public cannot be used with --production.")
-        sys.exit(1)
+        if not is_docker():
+            print("ERROR: --public cannot be used with --production on a host machine.")
+            print("This is a safety guardrail to prevent accidental network exposure.")
+            sys.exit(1)
+        else:
+            # We are in Docker, so this is expected and allowed.
+            print("🐳 Docker environment detected. Enabling public production binding.")
+
+    host_ip = "0.0.0.0" if args.public else "127.0.0.1"
 
     # 1. Configure the Environment
     if args.db:
