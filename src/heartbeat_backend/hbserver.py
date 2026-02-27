@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--public", 
         action="store_true", 
-        help="Bind to 0.0.0.0 (all interfaces) instead of 127.0.0.1 (localhost)"
+        help="Bind HTTP port to 0.0.0.0 (all interfaces) instead of 127.0.0.1 (localhost). (UDP is always public) When using Caddy for SSL, DO NOT use this flag."
     )
     parser.add_argument(
         "--port", 
@@ -98,20 +98,46 @@ if __name__ == "__main__":
         default=8333, 
         help="Port to listen on for both UDP and TCP (default: 8333)"
     )
+    parser.add_argument(
+        "--production", 
+        action="store_true", 
+        help="Run using Waitress WSGI server for production instead of Django development server."
+    )
     
     # parse_known_args extracts our flags and ignores anything else
     args, remaining_args = parser.parse_known_args()
-    
+
+    # Enforce Architectural Security Constraints
+    if args.production and args.public:
+        print("ERROR: --public cannot be used with --production.")
+        print("Waitress must bind to 127.0.0.1 and sit behind the Caddy reverse proxy.")
+        sys.exit(1)
+
     # Determine the binding IP based on the flag
-    host_ip = "0.0.0.0" if args.public else "127.0.0.1"
+    host_ip: str = "0.0.0.0" if args.public else "127.0.0.1"
 
     # 2. Start the UDP daemon on a background thread
-    udp_thread = threading.Thread(target=run_udp_server, args=(host_ip,args.port), daemon=True)
+    # always bind UDP to "0.0.0.0"
+    udp_thread = threading.Thread(target=run_udp_server, args=("0.0.0.0", args.port), daemon=True)
     udp_thread.start()
 
     # 3. Instruct Django to run the web server on the main thread
-    print(f"Starting Django web server on {host_ip}:{args.port}...")
-    
-    # We explicitly build the arguments for Django so it never sees the --public flag
-    runserver_args = [sys.argv[0], "runserver", f"{host_ip}:{args.port}", "--noreload"]
-    execute_from_command_line(runserver_args)
+    if args.production:
+        try:
+            import waitress
+            from django.core.wsgi import get_wsgi_application
+        except ImportError:
+            print("ERROR: Waitress is not installed. Run 'pip install waitress' or omit --production.")
+            sys.exit(1)
+            
+        print(f"Starting Waitress production web server on {host_ip}:{args.port}...")
+        # Get the WSGI application configured by django.setup() at the top of the file
+        application = get_wsgi_application()
+        
+        # Waitress blocks the main thread and handles concurrent requests via its internal thread pool
+        waitress.serve(application, host=host_ip, port=args.port)
+    else:
+        print(f"Starting Django development web server on {host_ip}:{args.port}...")
+        # We explicitly build the arguments for Django so it never sees the custom flags
+        runserver_args = [sys.argv[0], "runserver", f"{host_ip}:{args.port}", "--noreload"]
+        execute_from_command_line(runserver_args)

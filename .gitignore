@@ -4,6 +4,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# heartbeat server specific excludes!
+src/staticfiles/
+*.sqlite3
+
 # C extensions
 *.so
 

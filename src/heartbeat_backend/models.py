@@ -35,6 +35,9 @@ class HeartbeatEntry(models.Model):
         return (current_time - self.received_timestamp) <= self.alert_after
 
     class Meta:
+        verbose_name = "Heartbeat Entry"
+        verbose_name_plural = "Heartbeat Entries"
+
         # Enforce the snapshot behavior: only one record exists for this combination
         constraints = [
             models.UniqueConstraint(

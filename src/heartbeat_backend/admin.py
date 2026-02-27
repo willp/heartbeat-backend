@@ -67,8 +67,8 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
         'interval_human', 
         'alert_after_human', 
         'last_received_human',        
-        'delay', 
-        'sender_ip',
+        # 'delay', 
+        # 'sender_ip',
         'final_report'
     )
     

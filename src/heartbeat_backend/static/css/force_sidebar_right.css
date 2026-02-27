@@ -1,31 +1,89 @@
-/* src/heartbeat_backend/static/css/force_sidebar_right.css */
+/* 1. Nuke every possible width constraint in the parent hierarchy */
+:root {
+    --main-column-max-width: 100% !important;
+}
 
-/* 1. Nuke Django's responsive layout and force a strict 2-column Grid */
-.module.filtered#changelist {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 280px !important;
+html, body, #container, #main, #content-main {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 2. Remove the centering and padding from the main content block */
+#content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+}
+
+/* 3. Use Flexbox to force the table and sidebar to fill the space */
+#changelist.filtered {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    width: 100% !important;
     gap: 20px !important;
-    align-items: start !important;
 }
 
-/* 2. Lock the data table to the left column (Row 1, Column 1) */
+/* 4. The Table Container: It MUST grow to fill all available space */
 #changelist .changelist-form-container {
-    grid-column: 1 !important;
-    grid-row: 1 !important;
-    min-width: 0 !important; 
-    width: 100% !important;
+    flex: 1 1 auto !important; /* Grow to fill, but allow shrinking */
+    min-width: 0 !important;   /* Critical for allowing the table to fit */
+    width: auto !important;
 }
 
-/* Ensure the table itself can scroll horizontally inside its container */
-#changelist-form .results {
-    overflow-x: auto !important;
-    width: 100% !important;
-}
-
-/* 3. Lock the filter sidebar to the right column (Row 1, Column 2) */
+/* 5. The Sidebar: Keep it fixed at 280px */
 #changelist-filter {
-    grid-column: 2 !important;
-    grid-row: 1 !important;
+    flex: 0 0 280px !important;
+    width: 280px !important;
+    margin: 0 !important;
+    position: static !important;
+}
+
+/* 6. The Table: Force it to fill the flex-grow container */
+#changelist-form, 
+#changelist-form .results, 
+#result_list {
     width: 100% !important;
     margin: 0 !important;
+}
+
+/* 7. Stop the "Squish": Use fixed layout so columns don't collapse */
+#result_list {
+    table-layout: fixed !important;
+}
+
+/* 8. Handle Column Widths: Give the 'heavy' columns the most room */
+#result_list th, #result_list td {
+    padding: 8px !important;
+    /* overflow: hidden;
+    text-overflow: ellipsis; */
+}
+
+.column-port {
+    text-align: center !important;
+}
+
+.field-port {
+    text-align: center !important;
+}
+
+/* We manually set a few column widths to prevent the "tiny column" problem */
+.column-alive_status { width: 50px; }
+.column-hostname { width: 150px; }
+.column-app_name { width: 150px; }
+
+/* The final_report gets the lion's share of the width */
+.column-final_report { 
+    width: auto !important; 
+    white-space: normal !important;
+}
+
+/* 9. Clean up breadcrumbs */
+.breadcrumbs {
+    width: 100% !important;
+    margin-bottom: 10px !important;
 }
