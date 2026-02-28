@@ -1,0 +1,24 @@
+[Unit]
+Description=Heartbeat Backend (Podman Compose)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# TODO: Change this to your actual project directory
+WorkingDirectory=/home/willp/HB/
+# Path to podman-compose (usually /usr/bin/podman-compose)
+ExecStart=/usr/bin/podman-compose --verbose up --build --force-recreate
+ExecStop=/usr/bin/podman-compose down
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=BUILDKIT_PROGRESS=plain
+Environment=PYTHONUNBUFFERED=1
+# TODO: change to a standard Fedora user for these files
+User=willp
+Group=willp
+
+[Install]
+WantedBy=multi-user.target

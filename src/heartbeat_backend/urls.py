@@ -24,6 +24,7 @@ from . import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('api/heartbeats/', views.heartbeat_list_json, name='heartbeat_list_json'),    
+    path('api/healthcheck/', views.healthcheck, name='healthcheck'),    
 
     # HACK for running in container without yet having Caddy
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT,}),

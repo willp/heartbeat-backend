@@ -1,8 +1,10 @@
 version: '3.8'
+# ...
 
 services:
   heartbeat-server:
     build: .
+    container_name: hbserver
     restart: always
     
     # THE MAGIC FIX: 
