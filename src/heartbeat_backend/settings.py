@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
 from pathlib import Path
+import socket
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,7 +24,7 @@ DB_FILE_PATH = os.environ.get('HEARTBEAT_DB_PATH', BASE_DIR / 'hbdb.sqlite3')
 SECRET_KEY = "django-insecure-_wll!he^ft83!p5=e!e40djdzg$+y5!$46m=qgyj8sv(tsi7nt"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = 'jupiter' in socket.getfqdn() or 'nuclei' in socket.getfqdn()  # True  # HACK!!! TODO: CLEAN THIS UP
 
 ALLOWED_HOSTS = [
     "*",
