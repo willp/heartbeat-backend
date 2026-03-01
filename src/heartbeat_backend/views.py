@@ -11,8 +11,7 @@ from .decorators import basic_auth_required
 from . import settings
 
 # --- IN-MEMORY CONFIRMATION QUEUE ---
-# Thread-safe accumulator for action button presses.
-PENDING_CONFIRMATIONS = {'ack': 0, 'snooze': 0}
+PENDING_CONFIRMATIONS = {'ack': [], 'snooze': []}
 QUEUE_LOCK = threading.Lock()
 
 @require_GET
@@ -53,18 +52,21 @@ def api_watcher_data(request):
     
     # --- DRAIN THE QUEUE ---
     confirmations = []
-    # Use a 1-second timeout so a stuck thread never hangs the API
     if QUEUE_LOCK.acquire(timeout=1.0):
         try:
-            if PENDING_CONFIRMATIONS['ack'] > 0:
-                confirmations.append(f"Confirmed: {PENDING_CONFIRMATIONS['ack']} job(s) Acknowledged")
-                PENDING_CONFIRMATIONS['ack'] = 0
-            if PENDING_CONFIRMATIONS['snooze'] > 0:
-                confirmations.append(f"Confirmed: {PENDING_CONFIRMATIONS['snooze']} job(s) Snoozed (1hr)")
-                PENDING_CONFIRMATIONS['snooze'] = 0
+            if PENDING_CONFIRMATIONS['ack']:
+                # Add backticks around the pulled {name}
+                names = "\n".join([f"- `{name}`" for name in PENDING_CONFIRMATIONS['ack']])
+                confirmations.append(f"✅ Acknowledged:\n{names}")
+                PENDING_CONFIRMATIONS['ack'] = [] 
+                
+            if PENDING_CONFIRMATIONS['snooze']:
+                # Add backticks around the pulled {name}
+                names = "\n".join([f"- `{name}`" for name in PENDING_CONFIRMATIONS['snooze']])
+                confirmations.append(f"💤 Snoozed (1hr):\n{names}")
+                PENDING_CONFIRMATIONS['snooze'] = [] 
         finally:
             QUEUE_LOCK.release()
-    
     return JsonResponse({
         "jobs": jobs,
         "maintenance_windows": windows,
@@ -87,7 +89,7 @@ def api_webhook_bulk_action(request):
         return JsonResponse({"error": "Invalid request"}, status=400)
         
     signer = TimestampSigner()
-    processed_ids = []
+    processed_names = []
     now = int(time.time())
     
     for token in tokens:
@@ -107,7 +109,7 @@ def api_webhook_bulk_action(request):
                     previous_state=old_state, new_state='ACKNOWLEDGED',
                     message="Acknowledged via ntfy mobile app."
                 )
-                processed_ids.append(job.pk)
+                processed_names.append(job.identifier_string())
             elif action == "snooze" and job.alert_state != 'SNOOZED':
                 old_state = job.alert_state
                 job.alert_state = 'SNOOZED'
@@ -118,20 +120,20 @@ def api_webhook_bulk_action(request):
                     previous_state=old_state, new_state='SNOOZED',
                     message="Snoozed for 1 hour via ntfy mobile app."
                 )
-                processed_ids.append(job.pk)
+                processed_names.append(job.identifier_string())
         except (SignatureExpired, BadSignature, HeartbeatEntry.DoesNotExist, ValueError):
             continue 
 
     # --- FILL THE QUEUE ---
-    if processed_ids:
+    if processed_names:
         if QUEUE_LOCK.acquire(timeout=1.0):
             try:
-                PENDING_CONFIRMATIONS[action] += len(processed_ids)
+                PENDING_CONFIRMATIONS[action].extend(processed_names)
             finally:
                 QUEUE_LOCK.release()
 
     # Always return 200 OK so the mobile UI clears the notification
-    return JsonResponse({"status": "success", "processed_count": len(processed_ids)})
+    return JsonResponse({"status": "success", "processed_count": len(processed_names)})
 
 
 @csrf_exempt
