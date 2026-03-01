@@ -22,19 +22,20 @@ DB_FILE_PATH = os.environ.get('HEARTBEAT_DB_PATH', BASE_DIR / 'hbdb.sqlite3')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-_wll!he^ft83!p5=e!e40djdzg$+y5!$46m=qgyj8sv(tsi7nt"
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY', 
+    'django-insecure-dev-only-change-this-in-production' 
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = 'jupiter' in socket.getfqdn() or 'nuclei' in socket.getfqdn()  # True  # HACK!!! TODO: CLEAN THIS UP
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = [
-    "*",
-]
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost').split(',')
+
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://hb.tenthlight.com:8333",
-    "https://vm7.tenthlight.com:8333",  # Add this too if you use the VM name
+    f"https://{foo}:8333" for foo in ALLOWED_HOSTS
 ]
 
 # Application definition
@@ -116,7 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "America/Los_Angeles"
+TIME_ZONE = os.environ.get('TZ', "America/Los_Angeles")
 
 USE_I18N = True
 

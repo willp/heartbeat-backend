@@ -7,6 +7,7 @@ __pycache__/
 # heartbeat server specific excludes!
 src/staticfiles/
 *.sqlite3
+.env
 
 # C extensions
 *.so

@@ -51,90 +51,52 @@ html, body, #container, #main, #content-main {
     margin: 0 !important;
 }
 
-/* 7. Stop the "Squish": Use fixed layout so columns don't collapse */
+/* 7. Let the browser calculate column widths dynamically based on content */
 #result_list {
-    table-layout: fixed !important;
+    table-layout: auto !important; 
 }
 
-/* 8. Handle Column Widths: Give the 'heavy' columns the most room */
+/* 8. Padding and Alignment */
 #result_list th, #result_list td {
     padding: 10px !important;
-    /* overflow: hidden;
-    text-overflow: ellipsis; */
+    vertical-align: top !important; /* Keeps text aligned at the top when adjacent columns wrap */
 }
 
-.column-port {
-    text-align: center !important;
-}
-.column-interval_human {
-    text-align: center !important;
-}
-.column-alert_after_human {
-    text-align: center !important;
-}
-.column-last_received_human {
-    text-align: center !important;
-}
+/* --- THE "SHRINK-TO-FIT" COLUMNS --- */
+/* Force short, predictable columns to stay on one line and take up minimal space */
+.column-alive_status,
+.column-alert_state,
+.column-port,
+.column-interval_human,
+.column-alert_after_human,
+.column-last_received_human,
 .column-version {
     text-align: center !important;
-}
-.column-alive_status {
-    text-align: center !important;
-}
-.field-hostname {
-    margin-right: 20px;
+    white-space: nowrap !important; /* Prevent line breaks */
+    width: 1% !important;           /* Magic trick: forces column to exactly fit the width of its widest cell */
 }
 
-.field-port {
-    text-align: center !important;
-}
-.field-interval_human {
-    text-align: center !important;
-}
-.field-alert_after_human {
-    text-align: center !important;
-}
-.field-last_received_human {
-    text-align: center !important;
-}
-.field-version {
-    text-align: center !important;
-}
-.field-alive_status {
-    text-align: center !important;
-}
-
-
-/* We manually set a few column widths to prevent the "tiny column" problem */
-.column-alive_status { width: 50px; }
-/* .column-hostname { width: 150px; } */
-/* .column-app_name { width: 150px; } */
-
-/* The final_report gets the lion's share of the width */
-.column-final_report { 
-    width: auto !important; 
+/* --- THE "FLEXIBLE" COLUMNS --- */
+/* Allow long strings to break gently, but guarantee them enough room to be readable */
+.field-hostname,
+.field-app_name,
+.field-task {
     white-space: normal !important;
+    overflow-wrap: break-word !important; /* Gentler than break-all */
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    min-width: 150px !important;
+}
+
+/* The final_report gets the lion's share of the remaining width */
+.column-final_report { 
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    min-width: 250px !important;
 }
 
 /* 9. Clean up breadcrumbs */
 .breadcrumbs {
     width: 100% !important;
     margin-bottom: 10px !important;
-}
-
-/* Prevent text overlapping in the Django Admin list view */
-#result_list td.field-hostname,
-#result_list td.field-target_identity,
-#result_list td.field-app_name {
-    word-wrap: break-word;
-    word-break: break-all; /* Forces breaks even if there are no spaces or hyphens */
-    white-space: normal;   /* Overrides Django's default nowrap on some table cells */
-    min-width: 120px;      /* Ensures the column doesn't crush down to 0 */
-    max-width: 300px;      /* Prevents the column from hogging the screen */
-}
-
-#result_list td.interval,
-#result_list td.field-port {
-    min-width: 50px;      /* Ensures the column doesn't crush down to 0 */
-    max-width: 120px;      /* Prevents the column from hogging the screen */
 }

@@ -6,6 +6,8 @@ services:
     build: .
     container_name: hbserver
     restart: always
+    env_file:
+      - .env
     
     # THE MAGIC FIX: 
     # This tells Compose NOT to create a custom NAT bridge network, 
@@ -24,5 +26,3 @@ services:
     environment:
       - RUNNING_IN_CONTAINER=true
       - PYTHONPATH=/app
-      - DJANGO_DEBUG=False
-      - DJANGO_ALLOWED_HOSTS=hb.tenthlight.com
