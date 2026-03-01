@@ -3,6 +3,7 @@
 set -e
 
 echo "=== Running Django Migrations ==="
+# HEARTBEAT_DB_PATH=/data/hbdb.sqlite3
 python manage.py migrate
 
 echo "=== Starting Heartbeat Server ==="
