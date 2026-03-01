@@ -4,6 +4,7 @@ Heartbeat Server Backend
 
 
 ## 🔐 Configuration & Secrets
+
 This application requires a few environment variables to run securely. You can provide these via a .env file or directly to your container engine.
 
 || Variable || Description || Default ||
