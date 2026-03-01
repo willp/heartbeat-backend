@@ -35,7 +35,7 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost').split(',')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CSRF_TRUSTED_ORIGINS = [
-    f"https://{foo}:8333" for foo in ALLOWED_HOSTS
+    f"https://{host_or_ip}:8333" for host_or_ip in ALLOWED_HOSTS
 ]
 
 # Application definition
