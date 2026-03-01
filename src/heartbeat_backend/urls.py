@@ -19,6 +19,8 @@ urlpatterns = [
     path('api/watcher_data/', views.api_watcher_data, name='api_watcher_data'),
     path('api/bulk_transition/', views.api_bulk_transition, name='api_bulk_transition'),
 
+    path('api/webhook/bulk_action/', views.api_webhook_bulk_action, name='api_webhook_bulk_action'),
+
     # HACK for running in container without yet having Caddy
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT,}),
 ]

@@ -1,6 +1,7 @@
 import time
 import json
 from django.http import JsonResponse
+from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -34,7 +35,12 @@ def api_watcher_data(request):
     now = timezone.now()
     jobs = list(HeartbeatEntry.objects.values())
     
-    # Only return windows that are currently active and haven't expired
+    # NEW: Generate cryptographic tokens for every job
+    signer = TimestampSigner()
+    for job in jobs:
+        job['ack_token'] = signer.sign(f"ack:{job['id']}")
+        job['snooze_token'] = signer.sign(f"snooze:{job['id']}")
+    
     windows = list(MaintenanceWindow.objects.filter(
         is_active=True,
         start_time__lte=now,
@@ -48,6 +54,66 @@ def api_watcher_data(request):
         "maintenance_windows": windows,
         "has_undelivered_alerts": state.has_undelivered_alerts
     })
+
+# NEW WEBHOOK ENDPOINT
+@csrf_exempt
+def api_webhook_bulk_action(request):
+    """
+    Receives webhook POSTs from the ntfy mobile app to acknowledge/snooze multiple jobs at once.
+    Authentication is handled via time-limited, signed tokens (no Basic Auth needed).
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+        
+    action = request.GET.get('action')
+    # getlist() grabs all the '&t=' parameters from the URL
+    tokens = request.GET.getlist('t') 
+    
+    if action not in ['ack', 'snooze'] or not tokens:
+        return JsonResponse({"error": "Invalid request"}, status=400)
+        
+    signer = TimestampSigner()
+    processed_ids = []
+    now = int(time.time())
+    
+    for token in tokens:
+        try:
+            # Enforce the 25 hour expiration (25 * 3600 = 90000 seconds)
+            original_value = signer.unsign(token, max_age=90000)
+            t_action, job_id_str = original_value.split(":")
+            
+            # Prevent tampering (e.g. using a snooze token on the ack endpoint)
+            if t_action != action: continue
+                
+            job = HeartbeatEntry.objects.get(id=int(job_id_str))
+            
+            if action == "ack" and job.alert_state != 'ACKNOWLEDGED':
+                old_state = job.alert_state
+                job.alert_state = 'ACKNOWLEDGED'
+                job.save()
+                AlertTransitionEvent.objects.create(
+                    heartbeat_entry=job, timestamp=now,
+                    previous_state=old_state, new_state='ACKNOWLEDGED',
+                    message="Acknowledged via ntfy mobile app."
+                )
+            elif action == "snooze" and job.alert_state != 'SNOOZED':
+                old_state = job.alert_state
+                job.alert_state = 'SNOOZED'
+                job.snoozed_until = now + 3600 # Snooze for 1 hour
+                job.save()
+                AlertTransitionEvent.objects.create(
+                    heartbeat_entry=job, timestamp=now,
+                    previous_state=old_state, new_state='SNOOZED',
+                    message="Snoozed for 1 hour via ntfy mobile app."
+                )
+            processed_ids.append(job.pk)  # was job.id?
+            
+        # Safely ignore expired, tampered, or deleted jobs without crashing
+        except (SignatureExpired, BadSignature, HeartbeatEntry.DoesNotExist, ValueError):
+            continue 
+
+    return JsonResponse({"status": "success", "processed_count": len(processed_ids)})
+
 
 @csrf_exempt
 @basic_auth_required
