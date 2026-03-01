@@ -265,12 +265,12 @@ class AlertTransitionEventAdmin(admin.ModelAdmin):
         return obj.heartbeat_entry.identifier_string()
     get_identifier.short_description = 'Target'
 
-    # # --- Enforce Read-Only Audit Log Behavior ---
-    # def has_add_permission(self, request):
-    #     return False
+    # --- Enforce Read-Only Audit Log Behavior ---
+    def has_add_permission(self, request):
+        return False
         
-    # def has_change_permission(self, request, obj=None):
-    #     return False
+    def has_change_permission(self, request, obj=None):
+        return False
         
     # def has_delete_permission(self, request, obj=None):
     #     return False
