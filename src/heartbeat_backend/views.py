@@ -1,4 +1,5 @@
 import time
+import threading
 import json
 from django.http import JsonResponse
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
@@ -8,6 +9,11 @@ from django.utils import timezone
 from .models import HeartbeatEntry, MaintenanceWindow, WatcherState, AlertTransitionEvent
 from .decorators import basic_auth_required
 from . import settings
+
+# --- IN-MEMORY CONFIRMATION QUEUE ---
+# Thread-safe accumulator for action button presses.
+PENDING_CONFIRMATIONS = {'ack': 0, 'snooze': 0}
+QUEUE_LOCK = threading.Lock()
 
 @require_GET
 @basic_auth_required
@@ -29,44 +35,52 @@ def healthcheck(request):
 @basic_auth_required
 def api_watcher_data(request):
     """
-    GET: Returns all jobs, active maintenance windows, and the failed-delivery flag.
-    Used by the external HbWatcher script to evaluate alerting states.
+    GET: Returns jobs, maintenance windows, and drains the confirmation queue.
     """
     now = timezone.now()
     jobs = list(HeartbeatEntry.objects.values())
     
-    # NEW: Generate cryptographic tokens for every job
     signer = TimestampSigner()
     for job in jobs:
         job['ack_token'] = signer.sign(f"ack:{job['id']}")
         job['snooze_token'] = signer.sign(f"snooze:{job['id']}")
     
     windows = list(MaintenanceWindow.objects.filter(
-        is_active=True,
-        start_time__lte=now,
-        end_time__gt=now
+        is_active=True, start_time__lte=now, end_time__gt=now
     ).values())
     
     state = WatcherState.get_state()
     
+    # --- DRAIN THE QUEUE ---
+    confirmations = []
+    # Use a 1-second timeout so a stuck thread never hangs the API
+    if QUEUE_LOCK.acquire(timeout=1.0):
+        try:
+            if PENDING_CONFIRMATIONS['ack'] > 0:
+                confirmations.append(f"Confirmed: {PENDING_CONFIRMATIONS['ack']} job(s) Acknowledged")
+                PENDING_CONFIRMATIONS['ack'] = 0
+            if PENDING_CONFIRMATIONS['snooze'] > 0:
+                confirmations.append(f"Confirmed: {PENDING_CONFIRMATIONS['snooze']} job(s) Snoozed (1hr)")
+                PENDING_CONFIRMATIONS['snooze'] = 0
+        finally:
+            QUEUE_LOCK.release()
+    
     return JsonResponse({
         "jobs": jobs,
         "maintenance_windows": windows,
-        "has_undelivered_alerts": state.has_undelivered_alerts
+        "has_undelivered_alerts": state.has_undelivered_alerts,
+        "confirmations": confirmations # <--- Pass to HbWatcher
     })
 
-# NEW WEBHOOK ENDPOINT
 @csrf_exempt
 def api_webhook_bulk_action(request):
     """
-    Receives webhook POSTs from the ntfy mobile app to acknowledge/snooze multiple jobs at once.
-    Authentication is handled via time-limited, signed tokens (no Basic Auth needed).
+    Receives webhook POSTs from the ntfy mobile app.
     """
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405)
         
     action = request.GET.get('action')
-    # getlist() grabs all the '&t=' parameters from the URL
     tokens = request.GET.getlist('t') 
     
     if action not in ['ack', 'snooze'] or not tokens:
@@ -78,14 +92,11 @@ def api_webhook_bulk_action(request):
     
     for token in tokens:
         try:
-            # Enforce the 25 hour expiration (25 * 3600 = 90000 seconds)
             original_value = signer.unsign(token, max_age=90000)
             t_action, job_id_str = original_value.split(":")
-            
-            # Prevent tampering (e.g. using a snooze token on the ack endpoint)
             if t_action != action: continue
                 
-            job = HeartbeatEntry.objects.get(id=int(job_id_str))
+            job = HeartbeatEntry.objects.get(pk=int(job_id_str))
             
             if action == "ack" and job.alert_state != 'ACKNOWLEDGED':
                 old_state = job.alert_state
@@ -96,22 +107,30 @@ def api_webhook_bulk_action(request):
                     previous_state=old_state, new_state='ACKNOWLEDGED',
                     message="Acknowledged via ntfy mobile app."
                 )
+                processed_ids.append(job.pk)
             elif action == "snooze" and job.alert_state != 'SNOOZED':
                 old_state = job.alert_state
                 job.alert_state = 'SNOOZED'
-                job.snoozed_until = now + 3600 # Snooze for 1 hour
+                job.snoozed_until = now + 3600 
                 job.save()
                 AlertTransitionEvent.objects.create(
                     heartbeat_entry=job, timestamp=now,
                     previous_state=old_state, new_state='SNOOZED',
                     message="Snoozed for 1 hour via ntfy mobile app."
                 )
-            processed_ids.append(job.pk)  # was job.id?
-            
-        # Safely ignore expired, tampered, or deleted jobs without crashing
+                processed_ids.append(job.pk)
         except (SignatureExpired, BadSignature, HeartbeatEntry.DoesNotExist, ValueError):
             continue 
 
+    # --- FILL THE QUEUE ---
+    if processed_ids:
+        if QUEUE_LOCK.acquire(timeout=1.0):
+            try:
+                PENDING_CONFIRMATIONS[action] += len(processed_ids)
+            finally:
+                QUEUE_LOCK.release()
+
+    # Always return 200 OK so the mobile UI clears the notification
     return JsonResponse({"status": "success", "processed_count": len(processed_ids)})
 
 
