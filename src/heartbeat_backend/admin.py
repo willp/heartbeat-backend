@@ -91,6 +91,7 @@ class IsAliveFilter(admin.SimpleListFilter):
 
 @admin.register(HeartbeatEntry)
 class HeartbeatEntryAdmin(admin.ModelAdmin):
+    save_on_top = True
     # Front-and-center dashboard columns
     list_display = (
         'alive_status', 
@@ -211,6 +212,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
 
 @admin.register(MaintenanceWindow)
 class MaintenanceWindowAdmin(admin.ModelAdmin):
+    save_on_top = True
     list_display = ('name', 'is_active', 'start_time', 'end_time', 'hostname_filter', 'app_name_filter')
     list_filter = ('is_active',)
     search_fields = ('name', 'hostname_filter', 'app_name_filter', 'task_filter', 'version_filter')
@@ -226,6 +228,7 @@ class MaintenanceWindowAdmin(admin.ModelAdmin):
 
 @admin.register(WatcherState)
 class WatcherStateAdmin(admin.ModelAdmin):
+    save_on_top = True
     list_display = ('has_undelivered_alerts', 'last_updated_display')
 
     def last_updated_display(self, obj):
@@ -247,6 +250,7 @@ class WatcherStateAdmin(admin.ModelAdmin):
 
 @admin.register(AlertTransitionEvent)
 class AlertTransitionEventAdmin(admin.ModelAdmin):
+    save_on_top = True
     list_display = ('get_identifier', 'timestamp_display', 'previous_state', 'new_state', 'message')
     list_filter = ('new_state', 'previous_state')
     search_fields = ('heartbeat_entry__hostname', 'heartbeat_entry__app_name', 'message')
