@@ -121,3 +121,20 @@ html, body, #container, #main, #content-main {
     width: 100% !important;
     margin-bottom: 10px !important;
 }
+
+/* Prevent text overlapping in the Django Admin list view */
+#result_list td.field-hostname,
+#result_list td.field-target_identity,
+#result_list td.field-app_name {
+    word-wrap: break-word;
+    word-break: break-all; /* Forces breaks even if there are no spaces or hyphens */
+    white-space: normal;   /* Overrides Django's default nowrap on some table cells */
+    min-width: 120px;      /* Ensures the column doesn't crush down to 0 */
+    max-width: 300px;      /* Prevents the column from hogging the screen */
+}
+
+#result_list td.interval,
+#result_list td.field-port {
+    min-width: 50px;      /* Ensures the column doesn't crush down to 0 */
+    max-width: 120px;      /* Prevents the column from hogging the screen */
+}
