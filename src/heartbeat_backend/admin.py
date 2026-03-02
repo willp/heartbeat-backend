@@ -162,7 +162,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
     )
 
     # Right-hand sidebar filters (Custom filter + low cardinality fields)
-    list_filter = (IsAliveFilter, 'alert_state', 'is_encrypted', 'app_name', 'sender_ip', 'hostname', 'task', 'version')
+    list_filter = (IsAliveFilter, 'alert_state', 'hostname', 'app_name', 'is_encrypted', 'task', 'version', 'sender_ip',)
 
     # Top search bar
     search_fields = ('hostname', 'app_name', 'task', 'final_report')
