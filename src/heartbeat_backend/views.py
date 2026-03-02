@@ -252,6 +252,7 @@ def api_device_poll(request):
         "access_token": key.bearer_token,
         "token_type": "bearer",
         "key_id": key.pk,
+        "expires_at": key.expires_at,
         "aes_secret": key.aes_secret,
         "algorithm": "AES-GCM"
     })
@@ -346,7 +347,8 @@ def api_token_rotate(request):
     return JsonResponse({
         "access_token": key.bearer_token,
         "aes_secret": key.aes_secret,
-        "key_id": key.id
+        "key_id": key.id,
+        "expires_at": key.expires_at
     })
 
 @csrf_exempt

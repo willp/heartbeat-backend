@@ -8,6 +8,7 @@ def current_epoch_int():
     """Returns the server's current time as an integer epoch."""
     return int(time.time())
 
+
 # --- NEW ALERTING MODELS ---
 
 class AlertState(models.TextChoices):
@@ -145,6 +146,9 @@ class AlertTransitionEvent(models.Model):
 
 
 # --- NEW AUTH & CRYPTOGRAPHY MODELS ---
+def default_key_expiry():
+    """90-day lifespan for client keys."""
+    return current_epoch_int() + (90 * 86400)
 
 def generate_secure_token(length=43):
     """Generates a URL-safe base64 token."""
@@ -210,6 +214,7 @@ class ClientKey(models.Model):
     
     # --- METADATA ---
     created_at = models.BigIntegerField(default=current_epoch_int)
+    expires_at = models.BigIntegerField(default=default_key_expiry)
     last_rotated_at = models.BigIntegerField(default=current_epoch_int)
     last_used_at = models.BigIntegerField(default=current_epoch_int)
     is_revoked = models.BooleanField(default=False)
@@ -223,6 +228,7 @@ class ClientKey(models.Model):
         self.bearer_token = generate_secure_token()
         self.aes_secret = generate_aes_secret()
         self.last_rotated_at = current_epoch_int()
+        self.expires_at = default_key_expiry()
         self.save()
 
     def __str__(self):

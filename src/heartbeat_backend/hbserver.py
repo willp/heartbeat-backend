@@ -93,6 +93,11 @@ def run_udp_server(host_ip, port):
                         decrypted_bytes = aesgcm.decrypt(nonce, encrypted_payload, associated_data=None)
                         json_payload = json.loads(decrypted_bytes.decode('utf-8'))
                         is_secure_payload = True
+
+                        # --- NEW: Update the last_used_at timestamp ---
+                        from heartbeat_backend.models import current_epoch_int
+                        ClientKey.objects.filter(pk=client_key.pk).update(last_used_at=current_epoch_int())
+
                     except Exception:
                         if client_key.previous_aes_secret:
                             try:
@@ -100,6 +105,11 @@ def run_udp_server(host_ip, port):
                                 decrypted_bytes = aesgcm_prev.decrypt(nonce, encrypted_payload, associated_data=None)
                                 json_payload = json.loads(decrypted_bytes.decode('utf-8'))
                                 is_secure_payload = True
+
+                                # --- NEW: Update the last_used_at timestamp ---
+                                from heartbeat_backend.models import current_epoch_int
+                                ClientKey.objects.filter(pk=client_key.pk).update(last_used_at=current_epoch_int())
+
                             except Exception:
                                 continue
                         else:

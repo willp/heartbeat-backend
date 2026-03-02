@@ -319,11 +319,23 @@ class DeviceFlowSessionAdmin(admin.ModelAdmin):
 
 @admin.register(ClientKey)
 class ClientKeyAdmin(admin.ModelAdmin):
-    # Swapped out the raw integers for the human methods
-    list_display = ('id', 'name', 'owner', 'is_revoked', 'created_human', 'rotated_human', 'used_human')
+    # Swapped 'is_revoked' for the synthetic 'is_valid_status'
+    list_display = ('id', 'name', 'owner', 'is_valid_status', 'expires_in_human', 'created_human', 'rotated_human', 'used_human')
     list_filter = ('is_revoked', 'owner')
     search_fields = ('name', 'id')
     readonly_fields = ('id', 'aes_secret', 'bearer_token', 'previous_aes_secret', 'previous_bearer_token')
+
+    @admin.display(boolean=True, description='Valid?')
+    def is_valid_status(self, obj):
+        # A key is only valid if it hasn't been manually revoked AND it hasn't timed out
+        return not obj.is_revoked and obj.expires_at > int(time.time())
+
+    @admin.display(description='Expires In', ordering='expires_at')
+    def expires_in_human(self, obj):
+        time_left = obj.expires_at - int(time.time())
+        if time_left <= 0:
+            return "Expired"
+        return seconds_to_human(time_left)
 
     @admin.display(description='Created', ordering='created_at')
     def created_human(self, obj):
@@ -341,4 +353,4 @@ class ClientKeyAdmin(admin.ModelAdmin):
     def used_human(self, obj):
         local_tz = timezone.get_current_timezone()
         dt = datetime.fromtimestamp(obj.last_used_at, tz=local_tz)
-        return dt.strftime('%b %d, %Y %H:%M')
+        return dt.strftime('%b %d, %Y %H:%M')    
