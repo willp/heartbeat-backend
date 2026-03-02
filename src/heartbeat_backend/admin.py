@@ -279,10 +279,18 @@ class AlertTransitionEventAdmin(admin.ModelAdmin):
 
 @admin.register(DeviceFlowSession)
 class DeviceFlowSessionAdmin(admin.ModelAdmin):
-    # Added client_name and the human-readable timestamps
-    list_display = ('user_code', 'client_name', 'is_approved', 'assigned_user', 'created_human', 'expires_human')
+    # Swap 'is_expired_status' for 'is_active_status'
+    list_display = ('user_code', 'client_name', 'is_approved', 'is_active_status', 'assigned_user', 'created_human', 'expires_human')
     search_fields = ('user_code', 'device_code', 'client_name')
-    readonly_fields = ('device_code', 'user_code', 'client_name')
+    list_filter = ('is_approved', 'assigned_user', 'client_name')
+    
+    # Swap it here too
+    readonly_fields = ('device_code', 'user_code', 'client_name', 'is_active_status')
+
+    @admin.display(boolean=True, description='Active?')
+    def is_active_status(self, obj):
+        # Simply invert the logic! True = Green Check = Good
+        return not obj.is_expired()
 
     @admin.display(description='Created At', ordering='created_at')
     def created_human(self, obj):
