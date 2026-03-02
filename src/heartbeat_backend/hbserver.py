@@ -6,6 +6,11 @@ import socket
 import json
 import threading
 import argparse
+import struct
+import zlib
+import base64
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -54,29 +59,100 @@ def run_udp_server(host_ip, port):
         while True:
             data, client_address = server_socket.recvfrom(4096)
             ip_address = client_address[0]
-            try:
-                json_payload = json.loads(data)
-                hbmesg = HeartbeatMessage(json_payload)
+            
+            if not data:
+                continue
 
-                entry, created = HeartbeatEntry.objects.update_or_create(
-                    hostname=hbmesg.hostname,
-                    app_name=hbmesg.app_name,
-                    port=hbmesg.port,
-                    task=hbmesg.task,
-                    defaults={
-                        'sender_ip': ip_address,
-                        'interval': hbmesg.interval,
-                        'alert_after': hbmesg.alert_after,
-                        'version': hbmesg.version,
-                        'final_report': hbmesg.final_report,
-                        'sent_timestamp': hbmesg.sent_timestamp,
-                        'received_timestamp': current_epoch_int(),
-                    }
-                )
-            except json.JSONDecodeError:
-                pass # Or log it
-            except Exception as e:
-                print(f"Database/Processing error: {e}")
+            json_payload = None
+
+            # --- ROUTE 1: THE BINARY ENCRYPTED PACKET ---
+            if data[0] == 0xDB:
+                try:
+                    # Minimum size: 1(magic) + 1(ver) + 4(id) + 12(nonce) + 16(tag) + 4(crc) = 38 bytes
+                    if len(data) < 38:
+                        continue
+                        
+                    # 1. Verify CRC32 Checksum (Tail 4 bytes)
+                    packet_crc = struct.unpack(">I", data[-4:])[0]
+                    calculated_crc = zlib.crc32(data[:-4]) & 0xFFFFFFFF
+                    if packet_crc != calculated_crc:
+                        print(f"Dropped payload from {ip_address}: CRC32 mismatch")
+                        continue
+
+                    # 2. Parse Header
+                    version = data[1]
+                    if version != 1:
+                        print(f"Dropped payload from {ip_address}: Unsupported version {version}")
+                        continue
+
+                    key_id = struct.unpack(">I", data[2:6])[0]
+                    nonce = data[6:18]
+                    # AESGCM in Python expects the Auth Tag to be appended to the ciphertext
+                    encrypted_payload = data[18:-4] 
+
+                    # 3. Retrieve Key (Lazy load to ensure Django is ready)
+                    from heartbeat_backend.models import ClientKey
+                    try:
+                        client_key = ClientKey.objects.get(id=key_id, is_revoked=False)
+                    except ClientKey.DoesNotExist:
+                        print(f"Dropped payload from {ip_address}: Key ID {key_id} missing/revoked")
+                        continue
+
+                    # 4. Decrypt (With Fail-Safe Overlap)
+                    try:
+                        aesgcm = AESGCM(base64.b64decode(client_key.aes_secret))
+                        decrypted_bytes = aesgcm.decrypt(nonce, encrypted_payload, associated_data=None)
+                        json_payload = json.loads(decrypted_bytes.decode('utf-8'))
+                    except Exception:
+                        # If primary key fails, check if we are in a rotation grace period
+                        if client_key.previous_aes_secret:
+                            try:
+                                aesgcm_prev = AESGCM(base64.b64decode(client_key.previous_aes_secret))
+                                decrypted_bytes = aesgcm_prev.decrypt(nonce, encrypted_payload, associated_data=None)
+                                json_payload = json.loads(decrypted_bytes.decode('utf-8'))
+                            except Exception:
+                                print(f"Dropped payload from {ip_address}: Decryption failed for both active and previous keys.")
+                                continue
+                        else:
+                            print(f"Dropped payload from {ip_address}: Decryption failed (Auth Tag mismatch).")
+                            continue
+
+                except Exception as e:
+                    print(f"Binary parse error from {ip_address}: {e}")
+                    continue
+
+            # --- ROUTE 2: THE LEGACY CLEARTEXT JSON PACKET ---
+            elif data[0] == 123: # ASCII '{'
+                try:
+                    json_payload = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+            
+            # --- UNKNOWN ROUTE ---
+            else:
+                continue
+
+            # --- COMMON DATABASE INGESTION ---
+            if json_payload:
+                try:
+                    hbmesg = HeartbeatMessage(json_payload)
+                    entry, created = HeartbeatEntry.objects.update_or_create(
+                        hostname=hbmesg.hostname,
+                        app_name=hbmesg.app_name,
+                        port=hbmesg.port,
+                        task=hbmesg.task,
+                        defaults={
+                            'sender_ip': ip_address,
+                            'interval': hbmesg.interval,
+                            'alert_after': hbmesg.alert_after,
+                            'version': hbmesg.version,
+                            'final_report': hbmesg.final_report,
+                            'sent_timestamp': hbmesg.sent_timestamp,
+                            'received_timestamp': current_epoch_int(),
+                        }
+                    )
+                except Exception as e:
+                    print(f"Database/Processing error: {e}")
 
     except Exception as e:
         print(f"UDP Server shutting down: {e}")

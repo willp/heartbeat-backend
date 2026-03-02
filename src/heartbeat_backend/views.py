@@ -6,9 +6,18 @@ from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from django.middleware.csrf import get_token
+from django.http import HttpResponse
+from django.contrib.auth import logout
+from django.shortcuts import redirect
 from .models import HeartbeatEntry, MaintenanceWindow, WatcherState, AlertTransitionEvent
+from .models import DeviceFlowSession, ClientKey, current_epoch_int
 from .decorators import basic_auth_required
+from .decorators import bearer_auth_required
 from . import settings
+
 
 # --- IN-MEMORY CONFIRMATION QUEUE ---
 PENDING_CONFIRMATIONS = {'ack': [], 'snooze': []}
@@ -176,3 +185,176 @@ def api_bulk_transition(request):
             return JsonResponse({"error": "Invalid JSON payload"}, status=400)
             
     return JsonResponse({"error": "POST required"}, status=405)
+
+# --- DEVICE FLOW & KEY MANAGEMENT ENDPOINTS ---
+
+@csrf_exempt
+@require_POST
+def api_device_init(request):
+    """Step 1: CLI requests a new login session."""
+    try:
+        data = json.loads(request.body)
+    except:
+        data = {}
+        
+    client_name = data.get("client_name", "CLI Client")
+
+    # Create session (expires in 15 mins = 900 secs)
+    session = DeviceFlowSession.objects.create(
+        client_name=client_name,
+        expires_at=current_epoch_int() + 900
+    )
+
+    verification_uri = request.build_absolute_uri('/activate/')
+    # Force HTTPS if the proxy stripped the headers but we know it's a secure environment
+    if verification_uri.startswith("http://") and request.META.get('HTTP_HOST', '').endswith(':8333'):
+        verification_uri = verification_uri.replace("http://", "https://")
+    return JsonResponse({
+        "device_code": session.device_code,
+        "user_code": session.user_code,
+        "verification_uri": verification_uri,
+        "expires_in": 900,
+        "interval": 5
+    })
+
+@csrf_exempt
+@require_POST
+def api_device_poll(request):
+    """Step 2: CLI polls this endpoint waiting for human approval."""
+    try:
+        data = json.loads(request.body)
+        device_code = data.get("device_code")
+    except:
+        return JsonResponse({"error": "invalid_request"}, status=400)
+
+    try:
+        session = DeviceFlowSession.objects.get(device_code=device_code)
+    except DeviceFlowSession.DoesNotExist:
+        return JsonResponse({"error": "invalid_grant"}, status=400)
+
+    if session.is_expired():
+        session.delete()
+        return JsonResponse({"error": "expired_token"}, status=400)
+
+    if not session.is_approved:
+        return JsonResponse({"error": "authorization_pending"}, status=400)
+
+    # Step 3: Human approved it! Generate the permanent ClientKey.
+    key = ClientKey.objects.create(
+        owner=session.assigned_user,
+        name=session.client_name
+    )
+
+    # Destroy the temporary session
+    session.delete()
+
+    return JsonResponse({
+        "access_token": key.bearer_token,
+        "token_type": "bearer",
+        "key_id": key.pk,
+        "aes_secret": key.aes_secret,
+        "algorithm": "AES-GCM"
+    })
+
+def device_switch_user(request):
+    """Logs the current user out and redirects to login, then bounces back to /activate/."""
+    logout(request)
+    # Redirect to the built-in admin login page, passing the ?next= parameter
+    return redirect('/admin/login/?next=/activate/')
+
+
+@csrf_exempt
+@login_required
+def device_activate(request):
+    """The Web UI where the human enters the ABCD-1234 code."""
+    error_html = ""
+    
+    if request.method == "POST":
+        user_code = request.POST.get("user_code", "").strip().upper()
+        try:
+            session = DeviceFlowSession.objects.get(user_code=user_code)
+            if session.is_expired():
+                error_html = """
+                <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb; text-align: center; font-size: 16px;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">❌</div>
+                    <strong>Code Expired</strong><br><br>
+                    That code has expired. Please run: <br><code>hbclient login</code><br> on your terminal again to generate a new code.
+                </div>
+                """
+            else:
+                # Approve it and link the user
+                session.is_approved = True
+                session.assigned_user = request.user
+                session.save()
+                return HttpResponse("""
+                <div style='font-family: sans-serif; max-width: 400px; margin: 50px auto; text-align: center;'>
+                    <h2>✅ Device approved!</h2>
+                    <p>You can close this window and return to your terminal.</p>
+                </div>
+                """)
+        
+        except DeviceFlowSession.DoesNotExist:
+            error_html = """
+            <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb; text-align: center; font-size: 16px;">
+                <div style="font-size: 32px; margin-bottom: 10px;">⚠️</div>
+                <strong>Invalid Code</strong><br><br>
+                Please check your terminal and try again. Make sure you entered the exact 8-character code.
+            </div>
+            """
+
+    # --- DYNAMIC SECURITY WARNING ---
+    warning_html = ""
+    if request.user.is_superuser:
+        warning_html = f"""
+        <div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #ffeeba; text-align: left; font-size: 14px; line-height: 1.5;">
+            <strong>⚠️ Security Warning</strong><br>
+            You are currently logged in as a privileged admin (<b>{request.user.username}</b>).<br><br>
+            It is highly recommended to link CLI devices to a dedicated, non-privileged service account rather than your personal admin account.<br><br>
+            <a href="/activate/switch-user/" style="color: #0056b3; font-weight: bold; text-decoration: underline;">Log out and switch users</a>
+        </div>
+        """
+
+    # Render the form (Injecting the error_html right above the input)
+    html = f"""
+    <div style="font-family: sans-serif; max-width: 400px; margin: 50px auto; text-align: center;">
+        <h2>Connect CLI Device</h2>
+        {warning_html}
+        {error_html}
+        <form method="POST">
+            <p>Enter the 8-character code from your terminal:</p>
+            <input type="text" name="user_code" placeholder="XXXX-XXXX" 
+                   style="font-size: 24px; text-transform: uppercase; text-align: center; padding: 10px; width: 100%; letter-spacing: 2px; margin-bottom: 20px; box-sizing: border-box;" required>
+            <button type="submit" style="font-size: 18px; padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; width: 100%;">
+                Approve Device
+            </button>
+        </form>
+    </div>
+    """
+    
+    # Return 400 so network tools reflect the error, but still render the nice HTML
+    status_code = 400 if error_html else 200
+    return HttpResponse(html, status=status_code)
+
+
+@csrf_exempt
+@require_POST
+@bearer_auth_required
+def api_token_rotate(request):
+    """CLI background process calls this to get fresh AES keys."""
+    key = request.client_key
+    key.rotate_keys()
+    return JsonResponse({
+        "access_token": key.bearer_token,
+        "aes_secret": key.aes_secret,
+        "key_id": key.id
+    })
+
+@csrf_exempt
+@require_POST
+@bearer_auth_required
+def api_token_revoke(request):
+    """Graceful teardown from `hbclient logout`."""
+    key = request.client_key
+    key.is_revoked = True
+    key.save()
+    return JsonResponse({"status": "revoked"})

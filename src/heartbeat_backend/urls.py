@@ -34,7 +34,7 @@ def favicon_view(request):
     this_heart = random.choice(all_hearts)
     # why does this sometimes pick an invalid non-unicode  character? 
     svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">{this_heart}</text></svg>'
-    print(f"Favicon returned:  {this_heart}")
+    # print(f"Favicon returned:  {this_heart}")
     return HttpResponse(svg, content_type="image/svg+xml")
 
 urlpatterns = [
@@ -49,8 +49,17 @@ urlpatterns = [
     # New Watcher API Endpoints
     path('api/watcher_data/', views.api_watcher_data, name='api_watcher_data'),
     path('api/bulk_transition/', views.api_bulk_transition, name='api_bulk_transition'),
-
     path('api/webhook/bulk_action/', views.api_webhook_bulk_action, name='api_webhook_bulk_action'),
+
+    # OAuth Device Flow
+    path('api/auth/device/init/', views.api_device_init, name='api_device_init'),
+    path('api/auth/device/poll/', views.api_device_poll, name='api_device_poll'),
+    path('activate/', views.device_activate, name='device_activate'),
+    path('activate/switch-user/', views.device_switch_user, name='device_switch_user'), # <--- ADD THIS
+
+    # Key Lifecycle (Bearer Token Protected)
+    path('api/auth/token/rotate/', views.api_token_rotate, name='api_token_rotate'),
+    path('api/auth/token/revoke/', views.api_token_revoke, name='api_token_revoke'),
 
     # HACK for running in container without yet having Caddy
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT,}),

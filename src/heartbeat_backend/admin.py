@@ -1,13 +1,14 @@
 import time
 from django.contrib import admin
 from django.db.models import F
-from .models import HeartbeatEntry, MaintenanceWindow, WatcherState, AlertTransitionEvent
-
 from django.utils import timezone
 from datetime import datetime
 from django.utils.timesince import timesince
 from django.utils.html import format_html
 from django.template.defaultfilters import linebreaksbr
+
+from .models import HeartbeatEntry, MaintenanceWindow, WatcherState, AlertTransitionEvent
+from .models import DeviceFlowSession, ClientKey
 
 class AlertTransitionEventInline(admin.TabularInline):
     model = AlertTransitionEvent
@@ -274,3 +275,49 @@ class AlertTransitionEventAdmin(admin.ModelAdmin):
         
     # def has_delete_permission(self, request, obj=None):
     #     return False
+
+
+@admin.register(DeviceFlowSession)
+class DeviceFlowSessionAdmin(admin.ModelAdmin):
+    # Added client_name and the human-readable timestamps
+    list_display = ('user_code', 'client_name', 'is_approved', 'assigned_user', 'created_human', 'expires_human')
+    search_fields = ('user_code', 'device_code', 'client_name')
+    readonly_fields = ('device_code', 'user_code', 'client_name')
+
+    @admin.display(description='Created At', ordering='created_at')
+    def created_human(self, obj):
+        local_tz = timezone.get_current_timezone()
+        dt = datetime.fromtimestamp(obj.created_at, tz=local_tz)
+        return dt.strftime('%b %d, %Y %H:%M:%S')
+
+    @admin.display(description='Expires At', ordering='expires_at')
+    def expires_human(self, obj):
+        local_tz = timezone.get_current_timezone()
+        dt = datetime.fromtimestamp(obj.expires_at, tz=local_tz)
+        return dt.strftime('%b %d, %Y %H:%M:%S')
+
+@admin.register(ClientKey)
+class ClientKeyAdmin(admin.ModelAdmin):
+    # Swapped out the raw integers for the human methods
+    list_display = ('id', 'name', 'owner', 'is_revoked', 'created_human', 'rotated_human', 'used_human')
+    list_filter = ('is_revoked', 'owner')
+    search_fields = ('name', 'id')
+    readonly_fields = ('id', 'aes_secret', 'bearer_token', 'previous_aes_secret', 'previous_bearer_token')
+
+    @admin.display(description='Created', ordering='created_at')
+    def created_human(self, obj):
+        local_tz = timezone.get_current_timezone()
+        dt = datetime.fromtimestamp(obj.created_at, tz=local_tz)
+        return dt.strftime('%b %d, %Y %H:%M')
+
+    @admin.display(description='Last Rotated', ordering='last_rotated_at')
+    def rotated_human(self, obj):
+        local_tz = timezone.get_current_timezone()
+        dt = datetime.fromtimestamp(obj.last_rotated_at, tz=local_tz)
+        return dt.strftime('%b %d, %Y %H:%M')
+
+    @admin.display(description='Last Used', ordering='last_used_at')
+    def used_human(self, obj):
+        local_tz = timezone.get_current_timezone()
+        dt = datetime.fromtimestamp(obj.last_used_at, tz=local_tz)
+        return dt.strftime('%b %d, %Y %H:%M')

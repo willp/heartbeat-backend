@@ -1,4 +1,6 @@
 import time
+import secrets
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -135,3 +137,89 @@ class AlertTransitionEvent(models.Model):
     previous_state = models.CharField(max_length=20, choices=AlertState.choices)
     new_state = models.CharField(max_length=20, choices=AlertState.choices)
     message = models.TextField()
+
+
+# --- NEW AUTH & CRYPTOGRAPHY MODELS ---
+
+def generate_secure_token(length=43):
+    """Generates a URL-safe base64 token."""
+    return secrets.token_urlsafe(length)
+
+def generate_aes_secret():
+    """Generates a 32-byte (256-bit) high-entropy key, base64 encoded for DB storage."""
+    import base64
+    raw_key = secrets.token_bytes(32)
+    return base64.b64encode(raw_key).decode('utf-8')
+
+def generate_user_code():
+    """Generates a short, human-readable code like ABCD-1234."""
+    alpha_charset = "BDFGHJKLMNPQRSTVWXYZ" # Excludes ambiguous I, O. Also A+E+U+C for some badwords
+    num_charset = "23456789" # Excludes ambiguous 0, 1
+    alpha_code = "".join(secrets.choice(alpha_charset) for _ in range(4))
+    num_code = "".join(secrets.choice(num_charset) for _ in range(4))
+    return f"{alpha_code}-{num_code}"
+
+class DeviceFlowSession(models.Model):
+    """Transient state for the CLI OAuth Device Flow."""
+    device_code = models.CharField(max_length=128, unique=True, default=generate_secure_token)
+    user_code = models.CharField(max_length=9, unique=True, default=generate_user_code)
+
+    client_name = models.CharField(max_length=255, default="CLI Client")
+
+    # Lifecycle
+    created_at = models.BigIntegerField(default=current_epoch_int)
+    expires_at = models.BigIntegerField()
+    
+    # State flags
+    is_approved = models.BooleanField(default=False)
+    assigned_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        null=True, blank=True, 
+        on_delete=models.CASCADE
+    )
+
+    def is_expired(self):
+        return current_epoch_int() > self.expires_at
+
+    def __str__(self):
+        status = "APPROVED" if self.is_approved else "PENDING"
+        return f"[{status}] {self.user_code}"
+
+
+class ClientKey(models.Model):
+    """
+    Stores the cryptographic material and identity tokens for a CLI client.
+    The primary key 'id' acts as the 32-bit unsigned Key ID in the UDP payload.
+    """
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='client_keys')
+    name = models.CharField(max_length=255, help_text="e.g., prod-db-server")
+    
+    # --- ACTIVE CREDENTIALS ---
+    bearer_token = models.CharField(max_length=128, unique=True, db_index=True, default=generate_secure_token)
+    aes_secret = models.CharField(max_length=64, default=generate_aes_secret)
+    
+    # --- PREVIOUS CREDENTIALS (For Fail-Safe Overlap) ---
+    previous_bearer_token = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    previous_aes_secret = models.CharField(max_length=64, null=True, blank=True)
+    overlap_expires_at = models.BigIntegerField(null=True, blank=True)
+    
+    # --- METADATA ---
+    created_at = models.BigIntegerField(default=current_epoch_int)
+    last_rotated_at = models.BigIntegerField(default=current_epoch_int)
+    last_used_at = models.BigIntegerField(default=current_epoch_int)
+    is_revoked = models.BooleanField(default=False)
+
+    def rotate_keys(self, overlap_seconds=172800): # 48 hours default grace period
+        """Generates new credentials while temporarily caching the old ones."""
+        self.previous_bearer_token = self.bearer_token
+        self.previous_aes_secret = self.aes_secret
+        self.overlap_expires_at = current_epoch_int() + overlap_seconds
+        
+        self.bearer_token = generate_secure_token()
+        self.aes_secret = generate_aes_secret()
+        self.last_rotated_at = current_epoch_int()
+        self.save()
+
+    def __str__(self):
+        status = "REVOKED" if self.is_revoked else "ACTIVE"
+        return f"[{status}] Key ID {self.pk} | {self.name}"

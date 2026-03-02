@@ -26,3 +26,4 @@ services:
     environment:
       - RUNNING_IN_CONTAINER=true
       - PYTHONPATH=/app
+      - HEARTBEAT_DB_PATH=/data/hbdb.sqlite3
