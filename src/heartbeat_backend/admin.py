@@ -97,6 +97,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
     list_display = (
         'alive_status', 
         'alert_state', # <--- NEW
+        'encrypted_status',  # emoji override
         'hostname', 
         'app_name', 
         'port', 
@@ -119,6 +120,14 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
             {
                 "fields": ("hostname", "app_name", "port", "task", "version"),
                 "description": "Primary identifiers for this heartbeat source.",
+            },
+        ),
+        # Group: Security (NEW)
+        (
+            "Security & Encryption",
+            {
+                "fields": ("is_encrypted", "enforce_encryption"),
+                "description": "Check 'enforce_encryption' to strictly reject any plaintext fallback packets from this identity.",
             },
         ),
         # Group 2: The "When" (Live Dashboard Data)
@@ -153,7 +162,7 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
     )
 
     # Right-hand sidebar filters (Custom filter + low cardinality fields)
-    list_filter = (IsAliveFilter, 'alert_state', 'app_name', 'sender_ip', 'hostname', 'task', 'version')
+    list_filter = (IsAliveFilter, 'alert_state', 'is_encrypted', 'app_name', 'sender_ip', 'hostname', 'task', 'version')
 
     # Top search bar
     search_fields = ('hostname', 'app_name', 'task', 'final_report')
@@ -176,6 +185,10 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description='Alive?')
     def alive_status(self, obj):
         return obj.is_alive
+
+    @admin.display(boolean=True, description='🔒', ordering='is_encrypted')
+    def encrypted_status(self, obj):
+        return obj.is_encrypted
 
     @admin.display(description='Interval', ordering='interval')
     def interval_human(self, obj):

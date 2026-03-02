@@ -12,6 +12,7 @@ def current_epoch_int():
 
 class AlertState(models.TextChoices):
     NORMAL = 'NORMAL', _('Normal')
+    DEGRADED = 'DEGRADED', _('Degraded (Unencrypted)')
     ALERT_SENT = 'ALERT_SENT', _('Alert Sent')
     ACKNOWLEDGED = 'ACKNOWLEDGED', _('Acknowledged')
     SNOOZED = 'SNOOZED', _('Snoozed')
@@ -73,6 +74,10 @@ class HeartbeatEntry(models.Model):
     sent_timestamp = models.BigIntegerField()
     received_timestamp = models.BigIntegerField(default=current_epoch_int)
     sender_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    # --- NEW SECURITY FLAGS ---
+    is_encrypted = models.BooleanField(default=False, help_text="High-water mark: Has this client ever sent an encrypted packet?")
+    enforce_encryption = models.BooleanField(default=False, help_text="Strict Mode: Drop unencrypted packets from this client.")
 
     # --- NEW ALERTING FIELDS ---
     alert_state = models.CharField(max_length=20, choices=AlertState.choices, default=AlertState.NORMAL)
