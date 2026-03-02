@@ -6,9 +6,18 @@ from django.contrib import admin
 from django.urls import path
 from django.urls import re_path
 from django.views.static import serve
+from django.http import HttpResponse
 from . import views
 
+# --- NEW: Zero-file Emoji Favicon View ---
+def favicon_view(request):
+    """Serves the ❣ emoji directly from RAM as an SVG."""
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">❣</text></svg>'
+    return HttpResponse(svg, content_type="image/svg+xml")
+
 urlpatterns = [
+    path("favicon.ico", favicon_view),
+
     path("admin/", admin.site.urls),
     
     # Original API Endpoints
