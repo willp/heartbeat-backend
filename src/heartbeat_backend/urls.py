@@ -1,6 +1,7 @@
 """
 URL configuration for heartbeat_backend project.
 """
+import random
 from django.conf import settings
 from django.contrib import admin
 from django.urls import path
@@ -11,8 +12,29 @@ from . import views
 
 # --- NEW: Zero-file Emoji Favicon View ---
 def favicon_view(request):
-    """Serves the ❣ emoji directly from RAM as an SVG."""
-    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">❣</text></svg>'
+    """Serves the ❣ emoji directly from RAM as an SVG.
+        All heart unicode emojis:
+        ❣ heart exclamation point
+        💓 beating
+        💔 broken
+        💕 two hearts
+        💖 sparkling heart
+        💗 growing? heart
+        💘 cupid heart
+        💙 💚 💛 💜 🖤 💟  🤎 🩵 🩶 🩷 colorful hearts
+        💝 ribbon heart
+        💞 revolving? hearts
+        ❤️‍🩹 bandaged heart
+        ❤️‍🔥 heart en fuego
+        🫀 gross anatomical heart
+        --
+        bad ones: 🤍
+    """
+    all_hearts = ['❣','💔','💖','🩵','💝','❤️‍🩹']
+    this_heart = random.choice(all_hearts)
+    # why does this sometimes pick an invalid non-unicode  character? 
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">{this_heart}</text></svg>'
+    print(f"Favicon returned:  {this_heart}")
     return HttpResponse(svg, content_type="image/svg+xml")
 
 urlpatterns = [
