@@ -102,13 +102,13 @@ class HeartbeatEntryAdmin(admin.ModelAdmin):
         'app_name', 
         'port', 
         'task', 
-        'version',
         'interval_human', 
         'alert_after_human', 
         'last_received_human',       
         # 'delay', 
         # 'sender_ip',
-        'final_report'
+        'final_report',
+        'version',
     )
 
     inlines = [AlertTransitionEventInline]
