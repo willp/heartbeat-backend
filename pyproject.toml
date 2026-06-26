@@ -1,17 +1,39 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hb-server"
 version = "0.1.0"
 description = "Single-project Django heartbeat service"
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    {name = "J. Will Pierce", email = "willp@users.noreply.github.com"},
+]
+keywords = ["heartbeat", "monitoring", "nuclei", "server", "django"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Framework :: Django",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 6.0",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Monitoring",
+]
 dependencies = [
     "django>=5.0",
     "waitress>=3.0",
     "cryptography>=41.0.0",
 ]
-requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = [
@@ -19,12 +41,21 @@ dev = [
     "pytest-django>=4.5.0",
 ]
 
+[project.urls]
+Homepage      = "https://github.com/willp/heartbeat-backend"
+Repository    = "https://github.com/willp/heartbeat-backend"
+Documentation = "https://github.com/willp/heartbeat-backend/blob/main/README.md"
+Issues        = "https://github.com/willp/heartbeat-backend/issues"
+
 [project.scripts]
 hbserver = "hb_backend.hbserver:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["hb_backend*"]
+
+[tool.setuptools.package-data]
+hb_backend = ["static/**/*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "hb_backend.settings"
