@@ -1,21 +1,36 @@
-# heartbeat-backend
+# hb-server
 
-Heartbeat Server Backend
+Heartbeat server backend (`hb_backend`).
 
+## Installation
 
-## 🔐 Configuration & Secrets
+```bash
+pip install hb-server
+```
 
-This application requires a few environment variables to run securely. You can provide these via a .env file or directly to your container engine.
+This installs:
 
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| DJANGO_SECRET_KEY | (Required) A unique, unpredictable value used for signing. | insecure-dev-only |
-| DJANGO_ALLOWED_HOSTS | Comma-separated list of domains/IPs allowed to reach the server. | localhost |
-| HEARTBEAT_DB_PATH | Absolute path to your SQLite database. | ./hbdb.sqlite3 |
+- the Python package `hb_backend`
+- the CLI command `hbserver`
 
-### Example .env setup:
+## Running
 
-1. Copy the template: cp .env.example .env
-2. Generate a key: `python3 -c 'import secrets; print(secrets.token_urlsafe(50))'`
-3. Paste that key into your .env file.
+```bash
+hbserver --port 8333
+# or
+python3 -m hb_backend.hbserver --port 8333
+```
 
+Django admin:
+
+```bash
+cd src && python manage.py migrate
+cd src && python manage.py createsuperuser
+```
+
+## Related projects
+
+- `hb-client` (`hb_client`): heartbeat client library and CLI
+- `hb-watcher` (`hb_watcher`): monitoring daemon
+
+See [MIGRATION.md](MIGRATION.md) for upgrades from older package names.

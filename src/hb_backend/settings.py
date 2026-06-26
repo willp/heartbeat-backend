@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'heartbeat_backend',
+    "hb_backend.apps.HeartbeatBackendConfig",
 
 ]
 
@@ -61,7 +61,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "heartbeat_backend.urls"
+ROOT_URLCONF = "hb_backend.urls"
 
 TEMPLATES = [
     {
@@ -78,7 +78,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "heartbeat_backend.wsgi.application"
+WSGI_APPLICATION = "hb_backend.wsgi.application"
 
 
 # Database

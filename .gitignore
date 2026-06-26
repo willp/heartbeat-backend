@@ -63,3 +63,5 @@ docs/_build/
 # PyBuilder
 target/
 
+src/push_to_prod.sh
+

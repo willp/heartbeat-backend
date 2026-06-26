@@ -46,7 +46,7 @@ def run_udp_server(host_ip, port):
     # LAZY IMPORT: We import the Django models inside the function.
     # This guarantees Django is fully booted before we try to load the models,
     # preventing errors if another script imports this module.
-    from heartbeat_backend.models import HeartbeatEntry, current_epoch_int
+    from hb_backend.models import HeartbeatEntry, current_epoch_int
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -81,7 +81,7 @@ def run_udp_server(host_ip, port):
                     nonce = data[6:18]
                     encrypted_payload = data[18:-4] 
 
-                    from heartbeat_backend.models import ClientKey, AlertState
+                    from hb_backend.models import ClientKey, AlertState
                     try:
                         client_key = ClientKey.objects.get(id=key_id, is_revoked=False)
                     except ClientKey.DoesNotExist:
@@ -95,7 +95,7 @@ def run_udp_server(host_ip, port):
                         is_secure_payload = True
 
                         # --- NEW: Update the last_used_at timestamp ---
-                        from heartbeat_backend.models import current_epoch_int
+                        from hb_backend.models import current_epoch_int
                         ClientKey.objects.filter(pk=client_key.pk).update(last_used_at=current_epoch_int())
 
                     except Exception:
@@ -107,7 +107,7 @@ def run_udp_server(host_ip, port):
                                 is_secure_payload = True
 
                                 # --- NEW: Update the last_used_at timestamp ---
-                                from heartbeat_backend.models import current_epoch_int
+                                from hb_backend.models import current_epoch_int
                                 ClientKey.objects.filter(pk=client_key.pk).update(last_used_at=current_epoch_int())
 
                             except Exception:
@@ -129,7 +129,7 @@ def run_udp_server(host_ip, port):
             if json_payload:
                 try:
                     hbmesg = HeartbeatMessage(json_payload)
-                    from heartbeat_backend.models import AlertState # Lazy import
+                    from hb_backend.models import AlertState # Lazy import
 
                     # 1. Fetch the existing entry to check security rules
                     entry = HeartbeatEntry.objects.filter(
@@ -181,7 +181,7 @@ def run_udp_server(host_ip, port):
 
 # --- EXECUTION BLOCK (Only runs if script is executed directly) ---
 
-if __name__ == "__main__":
+def main() -> None:
     parser = argparse.ArgumentParser(description="Heartbeat Backend Server")
     parser.add_argument("--public", action="store_true", help="Bind HTTP to 0.0.0.0")
     parser.add_argument("--port", type=int, default=8333, help="Port to listen on")
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     if args.db:
         os.environ['HEARTBEAT_DB_PATH'] = args.db
     
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'heartbeat_backend.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hb_backend.settings')
     
     # 2. Boot Django
     import django
@@ -242,3 +242,7 @@ if __name__ == "__main__":
         print(f"Starting Django development server on {host_ip}:{args.port}...")
         runserver_args = [sys.argv[0], "runserver", f"{host_ip}:{args.port}", "--noreload"]
         execute_from_command_line(runserver_args)
+
+
+if __name__ == "__main__":
+    main()

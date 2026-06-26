@@ -1,3 +1,3 @@
 #!/bin/bash
-python3 -m heartbeat_backend.hbserver $*
-#PYTHONPATH=.:.. ./heartbeat_backend/hbserver.py
+hbserver "$@"
+# python3 -m hb_backend.hbserver "$@"
