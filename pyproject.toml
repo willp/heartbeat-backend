@@ -16,7 +16,6 @@ keywords = ["heartbeat", "monitoring", "nuclei", "server", "django"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Framework :: Django",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 6.0",

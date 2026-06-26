@@ -64,4 +64,5 @@ docs/_build/
 target/
 
 src/push_to_prod.sh
+new_release_to_pypi.sh
 
