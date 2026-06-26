@@ -13,9 +13,21 @@ dependencies = [
 ]
 requires-python = ">=3.10"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-django>=4.5.0",
+]
+
 [project.scripts]
 hbserver = "hb_backend.hbserver:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["hb_backend*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "hb_backend.settings"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
